@@ -37,7 +37,6 @@ void push(struct client **head_ref, int port_no, char *ip);
 void print(struct client *headref);
 void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct client *temp);
 char *find_ip(char *str);
-// void find_ip();
 void send_port(int listening_port, int server_fd);
 void assign_port(char *buffer, struct client *temp);
 void tostring(char str[], int num);
@@ -45,7 +44,6 @@ void send_client_list(struct client *headref, char client_list[]);
 void create_client_list(struct client **c_ref, char *buffer);
 void broadcast(struct client *c_ref, char *msg, int srver_fd);
 void add_new_client(struct client **head_ref, int fdaccept, struct sockaddr_in client_addr);
-int isValidIP(char *ip);
 int valid_digit(char *ip_str);
 char from_ip[25];
 
@@ -326,6 +324,7 @@ void add_new_client(struct client **head_ref, int fdaccept, struct sockaddr_in c
     }
 }
 
+
 // void push(struct client** head_ref, int port_no, char* ip)
 /* function to swap data of two nodes a and b*/
 void swap(struct client *a, struct client *b)
@@ -562,25 +561,18 @@ char *find_ip(char *str)
     struct sockaddr_in udp;
     int temp_udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     int len = sizeof(udp);
-    // char str[INET_ADDRSTRLEN];
     int result;
 
-    if (temp_udp == -1)
-    {
-        // printf("Socket creation failed!");
-    }
+    if (temp_udp == -1){}
 
     memset((char *)&udp, 0, sizeof(udp));
     udp.sin_family = AF_INET;
     udp.sin_port = htons(EPHEMERAL_PORT);
     inet_pton(AF_INET, "8.8.8.8", &udp.sin_addr);
-    // udp.sin_addr.s_addr = inet_addr("8.8.8.8");
 
     if (connect(temp_udp, (struct sockaddr *)&udp, sizeof(udp)) < 0)
-    {
-        // printf("\nConnection Failed \n");
         result = 0;
-    }
+
     if (getsockname(temp_udp, (struct sockaddr *)&udp, (unsigned int *)&len) == -1)
     {
         perror("getsockname");
@@ -588,9 +580,7 @@ char *find_ip(char *str)
     }
 
     inet_ntop(AF_INET, &(udp.sin_addr), str, len);
-    // printf("%s", str);
-
-    // Success
+ 
     if (result != 0)
     {
         cse4589_print_and_log("[%s:SUCCESS]\n", "IP");
@@ -599,39 +589,10 @@ char *find_ip(char *str)
     }
     else
     {
-        // Error
         cse4589_print_and_log("[%s:ERROR]\n", "IP");
         cse4589_print_and_log("[%s:END]\n", "IP");
     }
     return str;
-}
-int isValidIP(char *ip)
-{
-    char *ptr = ip;
-    strcat(ptr, "\0");
-    int dots = 0;
-
-    if (ip == NULL)
-        return 0;
-
-    ptr = strtok(ptr, ".");
-    while (ptr != NULL)
-    {
-        if (!valid_digit(ptr))
-            return 0;
-
-        if (atoi(ptr) >= 0 && atoi(ptr) <= 255)
-        {
-            ptr = strtok(NULL, ".");
-            if (ptr != NULL)
-                ++dots;
-        }
-        else
-            return 0;
-    }
-    if (dots != 3)
-        return 0;
-    return 1;
 }
 
 int valid_digit(char *ip_str)
@@ -978,7 +939,6 @@ int client(struct client **c_ref, int port_no, int listening_fd)
                             }
                             // Check if IP address is valid
                             char *temp = serverip;
-                            // result = isValidIP(temp);
 
                             if (result == 0)
                             {

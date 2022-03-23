@@ -14,6 +14,7 @@
 #define CMD_SIZE 100
 #define BUFFER_SIZE 256
 #define EPHEMERAL_PORT 53
+#define TRUE 1
 
 struct client
 {
@@ -33,10 +34,9 @@ char client_ip[5][100];
 int c = 1;
 int server(struct client **head_ref, int port_no, int listening_fd);
 int client(struct client **c_ref, int port_no, int listening_fd);
-void push(struct client **head_ref, int port_no, char *ip);
 void print(struct client *headref);
 void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct client *temp);
-char *find_ip(char *str);
+char *get_IP_address(char *str, int socket_number);
 void send_port(int listening_port, int server_fd);
 void assign_port(char *buffer, struct client *temp);
 void tostring(char str[], int num);
@@ -44,7 +44,6 @@ void send_client_list(struct client *headref, char client_list[]);
 void create_client_list(struct client **c_ref, char *buffer);
 void broadcast(struct client *c_ref, char *msg, int srver_fd);
 void add_new_client(struct client **head_ref, int fdaccept, struct sockaddr_in client_addr);
-int valid_digit(char *ip_str);
 char from_ip[25];
 
 int main(int argc, char *argv[])
@@ -61,11 +60,6 @@ int main(int argc, char *argv[])
     struct client *c_ref = NULL;
     struct sockaddr_in listen_addr;
 
-    if (argc != 3)
-    {
-        // printf("\nInvalid Input, Enter either s or c with port number");
-        exit(-1);
-    }
     listening_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (listening_fd == 0)
     {
@@ -89,13 +83,14 @@ int main(int argc, char *argv[])
         // printf( "Listen function failed\n");
         exit(EXIT_FAILURE);
     }
+    if(argc==3){
+        if (*argv[1] == 's')
+            server(&head_ref, atoi(argv[2]), listening_fd);
+        else
+            client(&c_ref, atoi(argv[2]), listening_fd);
 
-    if (*argv[1] == 's')
-        server(&head_ref, atoi(argv[2]), listening_fd);
-    else
-        client(&c_ref, atoi(argv[2]), listening_fd);
-
-    return 0;
+        return 0;
+    }
 }
 
 int server(struct client **head_ref, int port_no, int listening_fd)
@@ -116,7 +111,7 @@ int server(struct client **head_ref, int port_no, int listening_fd)
 
     server_head = listening_fd;
 
-    while (1)
+    while(TRUE)
     {
         memcpy(&watch_list, &master_list, sizeof(master_list));
 
@@ -154,9 +149,8 @@ int server(struct client **head_ref, int port_no, int listening_fd)
                         else if (strcmp(cmd, "IP\n") == 0)
                         {
                             char ip_str[INET_ADDRSTRLEN];
-                            strcpy(ip_str, find_ip(ip_str));
-                            // printf("%s", ip_str);
-                            // find_ip();
+                            int server_socket_number = socket(AF_INET, SOCK_STREAM, 0);
+                            strcpy(ip_str, get_IP_address(ip_str,server_socket_number));
                         }
                         else if (strcmp(cmd, "PORT\n") == 0)
                         {
@@ -180,7 +174,6 @@ int server(struct client **head_ref, int port_no, int listening_fd)
                         fdaccept = accept(listening_fd, (struct sockaddr *)&client_addr, (socklen_t *)&caddr_len);
                         if (fdaccept < 0)
                             perror("Accept failed.");
-                        // push(&head_ref, client_addr.sin_port, client_addr.sin_addr.s_addr);
                         else
                         {
                             // printf("\nRemote Host connected!\n");
@@ -325,7 +318,6 @@ void add_new_client(struct client **head_ref, int fdaccept, struct sockaddr_in c
 }
 
 
-// void push(struct client** head_ref, int port_no, char* ip)
 /* function to swap data of two nodes a and b*/
 void swap(struct client *a, struct client *b)
 {
@@ -509,9 +501,9 @@ void send_port(int listening_port, int server_fd)
     // printf("\n String temp %s", port);
     char str_cip[INET_ADDRSTRLEN];
 
-    struct sockaddr_in udp;
+    struct sockaddr_in socket_address_struct;
     int temp_udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    int len = sizeof(udp);
+    int len = sizeof(socket_address_struct);
     // char str[INET_ADDRSTRLEN];
     int result;
 
@@ -520,24 +512,24 @@ void send_port(int listening_port, int server_fd)
         // printf("Socket creation failed!");
     }
 
-    memset((char *)&udp, 0, sizeof(udp));
-    udp.sin_family = AF_INET;
-    udp.sin_port = htons(EPHEMERAL_PORT);
-    inet_pton(AF_INET, "8.8.8.8", &udp.sin_addr);
-    // udp.sin_addr.s_addr = inet_addr("8.8.8.8");
+    memset((char *)&socket_address_struct, 0, sizeof(socket_address_struct));
+    socket_address_struct.sin_family = AF_INET;
+    socket_address_struct.sin_port = htons(EPHEMERAL_PORT);
+    inet_pton(AF_INET, "8.8.8.8", &socket_address_struct.sin_addr);
+    // socket_address_struct.sin_addr.s_addr = inet_addr("8.8.8.8");
 
-    if (connect(temp_udp, (struct sockaddr *)&udp, sizeof(udp)) < 0)
+    if (connect(temp_udp, (struct sockaddr *)&socket_address_struct, sizeof(socket_address_struct)) < 0)
     {
         // printf("\nConnection Failed \n");
         result = 0;
     }
-    if (getsockname(temp_udp, (struct sockaddr *)&udp, (unsigned int *)&len) == -1)
+    if (getsockname(temp_udp, (struct sockaddr *)&socket_address_struct, (unsigned int *)&len) == -1)
     {
         perror("getsockname");
         result = 0;
     }
 
-    inet_ntop(AF_INET, &(udp.sin_addr), str_cip, len);
+    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), str_cip, len);
     // printf("%s", str);
 
     // strcpy(str_cip,str_cip);
@@ -556,30 +548,24 @@ void send_port(int listening_port, int server_fd)
     if (send(server_fd, send_port, strlen(send_port), 0) == -1)
         perror("Send");
 }
-char *find_ip(char *str)
+char *get_IP_address(char *str, int socket_number)
 {
-    struct sockaddr_in udp;
-    int temp_udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    int len = sizeof(udp);
+    struct sockaddr_in socket_address_struct;
+    int len = sizeof(socket_address_struct);
     int result;
 
-    if (temp_udp == -1){}
+    if (socket_number == -1){}
 
-    memset((char *)&udp, 0, sizeof(udp));
-    udp.sin_family = AF_INET;
-    udp.sin_port = htons(EPHEMERAL_PORT);
-    inet_pton(AF_INET, "8.8.8.8", &udp.sin_addr);
+    memset((char *)&socket_address_struct, 0, sizeof(socket_address_struct));
+    socket_address_struct.sin_family = AF_INET;
+    socket_address_struct.sin_port = htons(53);
+    inet_pton(AF_INET, "8.8.8.8", &socket_address_struct.sin_addr);
 
-    if (connect(temp_udp, (struct sockaddr *)&udp, sizeof(udp)) < 0)
-        result = 0;
-
-    if (getsockname(temp_udp, (struct sockaddr *)&udp, (unsigned int *)&len) == -1)
-    {
-        perror("getsockname");
+    if (connect(socket_number, (struct sockaddr *)&socket_address_struct, sizeof(socket_address_struct)) < 0 || getsockname(socket_number, (struct sockaddr *)&socket_address_struct, (unsigned int *)&len) == -1){
         result = 0;
     }
 
-    inet_ntop(AF_INET, &(udp.sin_addr), str, len);
+    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), str, len);
  
     if (result != 0)
     {
@@ -593,19 +579,6 @@ char *find_ip(char *str)
         cse4589_print_and_log("[%s:END]\n", "IP");
     }
     return str;
-}
-
-int valid_digit(char *ip_str)
-{
-    while (*ip_str)
-    {
-        if (*ip_str >= '0' && *ip_str <= '9')
-            ++ip_str;
-        else
-            return 0;
-    }
-
-    return 1;
 }
 
 void tostring(char str[], int num)
@@ -755,11 +728,11 @@ void create_client_list(struct client **c_ref, char *buffer)
 void broadcast(struct client *c_ref, char *msg, int server_fd)
 {
     char ip_str[INET_ADDRSTRLEN];
-    // strcpy(ip_str,find_ip(ip_str));
+    // strcpy(ip_str,get_IP_address(ip_str));
 
-    struct sockaddr_in udp;
+    struct sockaddr_in socket_address_struct;
     int temp_udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    int len = sizeof(udp);
+    int len = sizeof(socket_address_struct);
     // char str[INET_ADDRSTRLEN];
     int result;
 
@@ -768,24 +741,17 @@ void broadcast(struct client *c_ref, char *msg, int server_fd)
         // printf("Socket creation failed!");
     }
 
-    memset((char *)&udp, 0, sizeof(udp));
-    udp.sin_family = AF_INET;
-    udp.sin_port = htons(EPHEMERAL_PORT);
-    inet_pton(AF_INET, "8.8.8.8", &udp.sin_addr);
-    // udp.sin_addr.s_addr = inet_addr("8.8.8.8");
+    memset((char *)&socket_address_struct, 0, sizeof(socket_address_struct));
+    socket_address_struct.sin_family = AF_INET;
+    socket_address_struct.sin_port = htons(EPHEMERAL_PORT);
+    inet_pton(AF_INET, "8.8.8.8", &socket_address_struct.sin_addr);
+    // socket_address_struct.sin_addr.s_addr = inet_addr("8.8.8.8");
 
-    if (connect(temp_udp, (struct sockaddr *)&udp, sizeof(udp)) < 0)
-    {
-        // printf("\nConnection Failed \n");
-        result = 0;
+    if (connect(temp_udp, (struct sockaddr *)&socket_address_struct, sizeof(socket_address_struct)) < 0 || getsockname(temp_udp, (struct sockaddr *)&socket_address_struct, (unsigned int *)&len) == -1){
+        result=0;
     }
-    if (getsockname(temp_udp, (struct sockaddr *)&udp, (unsigned int *)&len) == -1)
-    {
-        perror("getsockname");
-        result = 0;
-    }
-
-    inet_ntop(AF_INET, &(udp.sin_addr), ip_str, len);
+    
+    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), ip_str, len);
     // printf("%s", str);
 
     int count = 0;
@@ -885,7 +851,8 @@ int client(struct client **c_ref, int port_no, int listening_fd)
                         if (strcmp(cmd, "IP\n") == 0)
                         {
                             char ip_str[INET_ADDRSTRLEN];
-                            strcpy(ip_str, find_ip(ip_str));
+                            int client_socket_number = socket(AF_INET, SOCK_STREAM, 0);
+                            strcpy(ip_str, get_IP_address(ip_str,client_socket_number));
                         }
                         else if (strcmp(cmd, "LIST\n") == 0)
                             print(*c_ref);

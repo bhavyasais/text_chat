@@ -1,3 +1,25 @@
+/**
+ * @bhavyasa_assignment1
+ * @author  Bhavyasai Survepalli <bhavyasa@buffalo.edu>
+ * @version 1.0
+ *
+ * @section LICENSE
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details at
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @section DESCRIPTION
+ *
+ * This contains the main function. Add further description here....
+ */
 #include <stdio.h>
 #include <sys/socket.h>
 #include <stdlib.h>
@@ -32,10 +54,10 @@ int port_num[15];
 char client_ip[15][150];
 int server(struct client **first_server_reference, int port_num, int server_client_socket_number);
 int client(struct client **first_client_reference, int port_num, int server_client_socket_number);
+int bindSocket(int server_client_socket_number, struct sockaddr_in socket_listen_address, int port_number, int new_server_client_socket_number);
 void getList(struct client *headref);
 void sendToClient(int sock_index, char *send_to_ip, char *buffer, struct client *temp);
 void getIpAddress(char *ip_string, int socket_number);
-int bindSocket(int server_client_socket_number, struct sockaddr_in socket_listen_address, int port_number, int new_server_client_socket_number);
 void transferPorts(int listening_port, int server_login_socket, int client_socket);
 void connectIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket);
 int getIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket, int res);
@@ -535,6 +557,24 @@ int bindSocket(int server_client_socket_number, struct sockaddr_in socket_listen
     return new_server_client_socket_number;
 }
 
+void getList(struct client *headref)
+{
+    cse4589_print_and_log("[%s:SUCCESS]\n", "LIST");
+    struct client *temp = headref;
+    int list_id = 1;
+    sort(headref);
+    while (temp != NULL)
+    {
+        if (temp->logged_in == 1)
+        {
+            cse4589_print_and_log("%-5d%-35s%-20s%-8d\n", list_id, temp->hostname, client_ip[temp->list_id], temp->port_num);
+        }
+        temp = temp->next;
+        list_id = list_id + 1;
+    }
+    cse4589_print_and_log("[%s:END]\n", "LIST");
+}
+
 void createClient(struct client **first_server_reference, int file_descriptor_server_client_socket, struct sockaddr_in client_addr)
 {
     char client_address[INET_ADDRSTRLEN], new_client_address[INET_ADDRSTRLEN];
@@ -568,14 +608,6 @@ void createClient(struct client **first_server_reference, int file_descriptor_se
     }
 }
 
-/* function to swap data of two nodes a and b*/
-void swap(struct client *inta, struct client *intb)
-{
-    int temp = inta->port_num;
-    inta->port_num = intb->port_num;
-    intb->port_num = temp;
-}
-/* Bubble sort the given linked lsit */
 void sort(struct client *start)
 {
     int flag;
@@ -592,39 +624,15 @@ void sort(struct client *start)
         {
             if (pointer1->port_num > pointer1->next->port_num)
             {
-                swap(pointer1, pointer1->next);
+                int temp = pointer1->port_num;
+                pointer1->port_num = pointer1->next->port_num;
+                pointer1->next->port_num = temp;
                 flag = 1;
             }
             pointer1 = pointer1->next;
         }
         pointer2 = pointer1;
     }
-}
-
-void swap_int(char *num1, char *num2)
-{
-    int temp;
-    temp = *num1;
-    *num1 = *num2;
-    *num2 = temp;
-}
-
-void getList(struct client *headref)
-{
-    cse4589_print_and_log("[%s:SUCCESS]\n", "LIST");
-    struct client *temp = headref;
-    int list_id = 1;
-    sort(headref);
-    while (temp != NULL)
-    {
-        if (temp->logged_in == 1)
-        {
-            cse4589_print_and_log("%-5d%-35s%-20s%-8d\n", list_id, temp->hostname, client_ip[temp->list_id], temp->port_num);
-        }
-        temp = temp->next;
-        list_id = list_id + 1;
-    }
-    cse4589_print_and_log("[%s:END]\n", "LIST");
 }
 
 void sendToClient(int sock_index, char *send_to_ip, char *buffer, struct client *temp)
@@ -721,7 +729,7 @@ void assignPort(char *buffer, struct client *temp)
     }
 }
 
-void connectIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket)
+void connectIpPort(char temp[INET_ADDRSTRLEN], int client_socket)
 {
     struct sockaddr_in socket_address_struct;
     int len = sizeof(socket_address_struct);
@@ -741,10 +749,10 @@ void connectIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket)
         result = 0;
     }
 
-    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), str_cip, len);
+    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), temp, len);
 }
 
-int getIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket, int res)
+int getIpPort(char temp[INET_ADDRSTRLEN], int client_socket, int res)
 {
     struct sockaddr_in socket_address_struct;
     int len = sizeof(socket_address_struct);
@@ -762,7 +770,7 @@ int getIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket, int res)
         res = 0;
     }
 
-    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), str_cip, len);
+    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), temp, len);
     return res;
 }
 
@@ -927,32 +935,24 @@ void broadcast(struct client *first_client_reference, char *temp_message, int se
     char *message = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
     if (temp_message != NULL)
         strcpy(message, temp_message);
-    char ip_str[INET_ADDRSTRLEN];
-    // strcpy(ip_str,getIpAddress(ip_str));
+    char temp_address[INET_ADDRSTRLEN];
 
     struct sockaddr_in socket_address_struct;
-    int temp_udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    int broadcast_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     int len = sizeof(socket_address_struct);
-    // char str[INET_ADDRSTRLEN];
     int result;
-
-    if (temp_udp == -1)
-    {
-        // printf("Socket creation failed!");
-    }
 
     memset((char *)&socket_address_struct, 0, sizeof(socket_address_struct));
     socket_address_struct.sin_family = AF_INET;
     socket_address_struct.sin_port = htons(53);
     inet_pton(AF_INET, "8.8.8.8", &socket_address_struct.sin_addr);
-    // socket_address_struct.sin_addr.s_addr = inet_addr("8.8.8.8");
 
-    if (connect(temp_udp, (struct sockaddr *)&socket_address_struct, sizeof(socket_address_struct)) < 0 || getsockname(temp_udp, (struct sockaddr *)&socket_address_struct, (unsigned int *)&len) == -1)
+    if (connect(broadcast_socket, (struct sockaddr *)&socket_address_struct, sizeof(socket_address_struct)) < 0 || getsockname(broadcast_socket, (struct sockaddr *)&socket_address_struct, (unsigned int *)&len) == -1)
     {
         result = 0;
     }
 
-    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), ip_str, len);
+    inet_ntop(AF_INET, &(socket_address_struct.sin_addr), temp_address, len);
     // printf("%s", str);
 
     int count = 0;
@@ -960,8 +960,7 @@ void broadcast(struct client *first_client_reference, char *temp_message, int se
     char *buffer_sent = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
     while (temp != NULL)
     {
-
-        if (strcmp(client_ip[temp->list_id], ip_str) != 0)
+        if (strcmp(client_ip[temp->list_id], temp_address) != 0)
         {
 
             strcat(buffer_sent, client_ip[temp->list_id]);
@@ -980,13 +979,12 @@ void broadcast(struct client *first_client_reference, char *temp_message, int se
     if (count > 0)
     {
         cse4589_print_and_log("[RELAYED:SUCCESS]\n");
-        cse4589_print_and_log("message from:%s, to:255.255.255.255\n[message]:%s\n", ip_str, message);
+        cse4589_print_and_log("message from:%s, to:255.255.255.255\n[message]:%s\n", temp_address, message);
         cse4589_print_and_log("[RELAYED:END]\n");
     }
     else
     {
         cse4589_print_and_log("[RELAYED:ERROR]\n");
-        // cse4589_print_and_log("message from:%s, to:%s\n[message]:%s\n",from_ip,send_to_ip,buffer);
         cse4589_print_and_log("[RELAYED:END]\n");
     }
 }

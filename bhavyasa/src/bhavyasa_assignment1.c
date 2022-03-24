@@ -14,6 +14,7 @@
 #define CMD_SIZE 100
 #define BUFFER_SIZE 1024
 #define TRUE 1
+#define SERVERS 5
 
 struct client
 {
@@ -32,15 +33,15 @@ char client_ip[15][150];
 int server(struct client **first_server_reference, int port_num, int server_client_socket_number);
 int client(struct client **first_client_reference, int port_num, int server_client_socket_number);
 void getList(struct client *headref);
-void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct client *temp);
+void sendToClient(int sock_index, char *send_to_ip, char *buffer, struct client *temp);
 void getIpAddress(char *ip_string, int socket_number);
 int bindSocket(int server_client_socket_number, struct sockaddr_in socket_listen_address, int port_number, int new_server_client_socket_number);
 void transferPorts(int listening_port, int server_login_socket, int client_socket);
 void connectIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket);
 int getIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket, int res);
-void assign_port(char *buffer, struct client *temp);
+void assignPort(char *buffer, struct client *temp);
 void toString(char str[], int num);
-void send_client_list(struct client *headref, char client_list[]);
+void transferClientList(struct client *headref, char client_list[]);
 void generateList(struct client **first_client_reference, char *buffer);
 void broadcast(struct client *first_client_reference, char *message, int srver_fd);
 void createClient(struct client **first_server_reference, int file_descriptor_server_client_socket, struct sockaddr_in client_addr);
@@ -191,13 +192,10 @@ int server(struct client **first_server_reference, int port_num, int server_clie
                             if (strcmp(send_to_ip, "PORT") == 0)
                             {
                                 int success = 0;
-                                assign_port(buffer, temp);
+                                assignPort(buffer, temp);
                                 char client_list_buffer[700];
-                                send_client_list(*first_server_reference, client_list_buffer);
-                                // printf(" buf : %s", client_list_buffer);
+                                transferClientList(*first_server_reference, client_list_buffer);
                                 if (send(file_descriptor_server_client_socket, client_list_buffer, strlen(client_list_buffer), 0) == strlen(client_list_buffer))
-                                    // printf("Done!\n");
-                                    //}
                                     success = 1;
                             }
                             else
@@ -218,7 +216,7 @@ int server(struct client **first_server_reference, int port_num, int server_clie
 
                                 // printf("\n from_ip %s");
                                 temp = *first_server_reference;
-                                send_to_client(sock_index, send_to_ip, message, temp);
+                                sendToClient(sock_index, send_to_ip, message, temp);
                             }
 
                             fflush(stdout);
@@ -629,14 +627,14 @@ void getList(struct client *headref)
     cse4589_print_and_log("[%s:END]\n", "LIST");
 }
 
-void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct client *temp)
+void sendToClient(int sock_index, char *send_to_ip, char *buffer, struct client *temp)
 {
     char *str = (char *)malloc(sizeof(MESSAGE_SIZE));
     char *from_ip = (char *)malloc(sizeof(MESSAGE_SIZE));
     int j;
     int success = 1;
     struct client *temp1 = temp;
-    for (j = 1; j <= 15; j++)
+    for (j = 1; j <= SERVERS; j++)
     {
         if (strcmp(send_to_ip, client_ip[j]) == 0)
         {
@@ -676,11 +674,10 @@ void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct clien
     }
 }
 
-void assign_port(char *buffer, struct client *temp)
+void assignPort(char *buffer, struct client *temp)
 {
     char *port, *ip_address_client;
     int count = 0;
-    // printf("\n Let's assign ports");
     while (count != 2)
     {
         char *a = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
@@ -690,7 +687,6 @@ void assign_port(char *buffer, struct client *temp)
             buffer = strtok(NULL, " ");
             strcpy(a, buffer);
             ip_address_client = a;
-            // printf(" %s ", ip_address_client);
         }
         else if (count == 1)
         {
@@ -703,25 +699,20 @@ void assign_port(char *buffer, struct client *temp)
         count += 1;
     }
     int j;
-    for (j = 1; j <= 5; j++)
+    for (j = 1; j <= SERVERS; j++)
     {
         if (strcmp(ip_address_client, client_ip[j]) == 0)
         {
-            // printf("\n %d %s", j, client_ip[j]);
             break;
         }
     }
 
-    if (j == 6)
-    { // printf("\n Could not find receiver");
-    }
-    else
+    if (j != 6)
     {
         while (temp->list_id != j)
             temp = temp->next;
         if (temp == NULL)
             ;
-        // printf("\n Could not find receiver!");
         else
         {
             temp->port_num = atoi(port);
@@ -729,6 +720,7 @@ void assign_port(char *buffer, struct client *temp)
         }
     }
 }
+
 void connectIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket)
 {
     struct sockaddr_in socket_address_struct;
@@ -823,41 +815,34 @@ void toString(char str[], int num)
     str[len] = '\0';
 }
 
-void send_client_list(struct client *headref, char client_list[])
+void transferClientList(struct client *headref, char client_list[])
 {
-    char buf[500] = "";
-    //  char client_list[500]= "";
-    // int i;
-    // char port[INET_ADDRSTRLEN]= "";
+    char buffer[400] = "";
     struct client *temp = headref;
-    // strcat(buf, "List");
     char list_id[10] = "";
-    char str[20] = "";
-    strcat(buf, "List");
+    char temp_port[20] = "";
+    strcat(buffer, "List");
     while (temp != NULL)
     {
         if (temp->logged_in == 1)
         {
-            strcat(buf, " ");
+            strcat(buffer, " ");
             toString(list_id, temp->list_id);
-            strcat(buf, list_id);
-            strcat(buf, " ");
-            toString(str, temp->port_num);
-            strcat(buf, str);
-            strcat(buf, " ");
-            strcat(buf, temp->hostname);
-            strcat(buf, "\n");
-            strcat(buf, client_ip[temp->list_id]);
-            // strcat(buf, temp->isBlocked);
-            strcat(buf, "\n");
+            strcat(buffer, list_id);
+            strcat(buffer, " ");
+            toString(temp_port, temp->port_num);
+            strcat(buffer, temp_port);
+            strcat(buffer, " ");
+            strcat(buffer, temp->hostname);
+            strcat(buffer, "\n");
+            strcat(buffer, client_ip[temp->list_id]);
+            strcat(buffer, "\n");
         }
         temp = temp->next;
     }
-    // printf("\n List: %s", buf);
-    strcpy(client_list, buf);
-
-    // return client_list;
+    strcpy(client_list, buffer);
 }
+
 void generateList(struct client **first_client_reference, char *buffer)
 {
 

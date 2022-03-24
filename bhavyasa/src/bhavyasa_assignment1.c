@@ -19,34 +19,34 @@
 struct client
 {
     int list_id;
-    char *ip;
-    int client_fd;
+    char *ip_addr;
+    int client_file_descriptor;
     char *hostname;
     int block_status;
-    int client_status;
-    int port_no;
+    int logged_in;
+    int port_num;
     struct client *next;
 };
 
-int port_no[5];
+int port_num[5];
 char client_ip[5][100];
-int c = 1;
-int server(struct client **first_server_reference, int port_no, int server_client_socket_number);
-int client(struct client **first_client_reference, int port_no, int server_client_socket_number);
-void print(struct client *headref);
+int server(struct client **first_server_reference, int port_num, int server_client_socket_number);
+int client(struct client **first_client_reference, int port_num, int server_client_socket_number);
+void getList(struct client *headref);
 void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct client *temp);
-void get_IP_address(char *ip_string, int socket_number);
-int bind_socket(int server_client_socket_number, struct sockaddr_in socket_listen_address, int port_number, int new_server_client_socket_number);
-void send_port(int listening_port, int server_login_socket, int client_socket);
-void connect_ip_port(char str_cip[INET_ADDRSTRLEN], int client_socket);
-int get_ip_port(char str_cip[INET_ADDRSTRLEN], int client_socket, int res);
+void getIpAddress(char *ip_string, int socket_number);
+int bindSocket(int server_client_socket_number, struct sockaddr_in socket_listen_address, int port_number, int new_server_client_socket_number);
+void transferPorts(int listening_port, int server_login_socket, int client_socket);
+void connectIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket);
+int getIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket, int res);
 void assign_port(char *buffer, struct client *temp);
-void tostring(char str[], int num);
+void toString(char str[], int num);
 void send_client_list(struct client *headref, char client_list[]);
-void create_client_list(struct client **first_client_reference, char *buffer);
+void generateList(struct client **first_client_reference, char *buffer);
 void broadcast(struct client *first_client_reference, char *message, int srver_fd);
-void add_new_client(struct client **first_server_reference, int fdaccept, struct sockaddr_in client_addr);
-char from_ip[25];
+void createClient(struct client **first_server_reference, int file_descriptor_server_client_socket, struct sockaddr_in client_addr);
+void sort(struct client *start);
+int client_id = 1;
 
 int main(int argc, char *argv[])
 {
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
     }
 
     struct sockaddr_in socket_listen_address;
-    new_server_client_socket_number = bind_socket(server_client_socket_number, socket_listen_address, atoi(argv[2]), new_server_client_socket_number);
+    new_server_client_socket_number = bindSocket(server_client_socket_number, socket_listen_address, atoi(argv[2]), new_server_client_socket_number);
     if (new_server_client_socket_number < 0)
     {
         exit(EXIT_FAILURE);
@@ -84,11 +84,11 @@ int main(int argc, char *argv[])
     }
 }
 
-int server(struct client **first_server_reference, int port_no, int server_client_socket_number)
+int server(struct client **first_server_reference, int port_num, int server_client_socket_number)
 {
     // first_server_reference = (struct client*) malloc(sizeof(struct client));
 
-    int server_head, selret, caddr_len = 0, fdaccept = 0;
+    int server_head, selret, caddr_len = 0, file_descriptor_server_client_socket = 0;
     struct sockaddr_in client_addr;
     fd_set master_list, watch_list;
 
@@ -133,45 +133,43 @@ int server(struct client **first_server_reference, int port_no, int server_clien
                         if (strcmp(cmd, "AUTHOR\n") == 0)
                         {
                             cse4589_print_and_log("[%s:SUCCESS]\n", "AUTHOR");
-
                             cse4589_print_and_log("I, %s, have read and understood the course academic integrity policy.\n", "bhavysa");
-
                             cse4589_print_and_log("[%s:END]\n", "AUTHOR");
                         }
                         else if (strcmp(cmd, "IP\n") == 0)
                         {
                             char ip_address[INET_ADDRSTRLEN];
                             int server_socket_number = socket(AF_INET, SOCK_STREAM, 0);
-                            get_IP_address(ip_address, server_socket_number);
+                            getIpAddress(ip_address, server_socket_number);
                         }
                         else if (strcmp(cmd, "PORT\n") == 0)
                         {
                             cse4589_print_and_log("[%s:SUCCESS]\n", "PORT");
-                            cse4589_print_and_log("PORT:%d\n", port_no);
+                            cse4589_print_and_log("PORT:%d\n", port_num);
                             cse4589_print_and_log("[%s:END]\n", "PORT");
                         }
                         else if (strcmp(cmd, "LIST\n") == 0)
                         {
-                            print(*first_server_reference);
+                            getList(*first_server_reference);
                         }
                     }
                     /* Check if new client is requesting connection */
                     else if (sock_index == server_client_socket_number)
                     {
                         caddr_len = sizeof(client_addr);
-                        fdaccept = accept(server_client_socket_number, (struct sockaddr *)&client_addr, (socklen_t *)&caddr_len);
-                        if (fdaccept < 0)
+                        file_descriptor_server_client_socket = accept(server_client_socket_number, (struct sockaddr *)&client_addr, (socklen_t *)&caddr_len);
+                        if (file_descriptor_server_client_socket < 0)
                             perror("Accept failed.");
                         else
                         {
                             // printf("\nRemote Host connected!\n");
 
                             /* Add to watched socket list */
-                            FD_SET(fdaccept, &master_list);
-                            if (fdaccept > server_head)
-                                server_head = fdaccept;
+                            FD_SET(file_descriptor_server_client_socket, &master_list);
+                            if (file_descriptor_server_client_socket > server_head)
+                                server_head = file_descriptor_server_client_socket;
 
-                            add_new_client(first_server_reference, fdaccept, client_addr);
+                            createClient(first_server_reference, file_descriptor_server_client_socket, client_addr);
                         }
                     }
                     /* Read from existing clients */
@@ -222,7 +220,7 @@ int server(struct client **first_server_reference, int port_no, int server_clien
                                 char client_list_buf[500];
                                 send_client_list(*first_server_reference, client_list_buf);
                                 // printf(" buf : %s", client_list_buf);
-                                if (send(fdaccept, client_list_buf, strlen(client_list_buf), 0) == strlen(client_list_buf))
+                                if (send(file_descriptor_server_client_socket, client_list_buf, strlen(client_list_buf), 0) == strlen(client_list_buf))
                                     // printf("Done!\n");
                                     //}
                                     success = 1;
@@ -261,7 +259,7 @@ int server(struct client **first_server_reference, int port_no, int server_clien
     return 0;
 }
 
-int bind_socket(int server_client_socket_number, struct sockaddr_in socket_listen_address, int port_number, int new_server_client_socket_number)
+int bindSocket(int server_client_socket_number, struct sockaddr_in socket_listen_address, int port_number, int new_server_client_socket_number)
 {
     socket_listen_address.sin_addr.s_addr = htonl(INADDR_ANY);
     socket_listen_address.sin_family = AF_INET;
@@ -278,84 +276,70 @@ int bind_socket(int server_client_socket_number, struct sockaddr_in socket_liste
     return new_server_client_socket_number;
 }
 
-void add_new_client(struct client **first_server_reference, int fdaccept, struct sockaddr_in client_addr)
+void createClient(struct client **first_server_reference, int file_descriptor_server_client_socket, struct sockaddr_in client_addr)
 {
-    // unsigned int client_port = ntohs(client_addr.sin_port);
-    char str[INET_ADDRSTRLEN];
-    char str1[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &(client_addr.sin_addr), str, INET_ADDRSTRLEN);
-    // printf("%d %s", client_port, str);
+    char client_address[INET_ADDRSTRLEN], new_client_address[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(client_addr.sin_addr), client_address, INET_ADDRSTRLEN);
     struct hostent *hostname = NULL;
     struct in_addr ipv4addr;
-    inet_ntop(AF_INET, &(client_addr.sin_addr), str1, INET_ADDRSTRLEN);
-    inet_pton(AF_INET, str1, &ipv4addr);
+    inet_ntop(AF_INET, &(client_addr.sin_addr), new_client_address, INET_ADDRSTRLEN);
+    inet_pton(AF_INET, new_client_address, &ipv4addr);
     hostname = gethostbyaddr(&ipv4addr, sizeof(ipv4addr), AF_INET);
-    int hlen = (int)strlen(hostname->h_name);
+    int host_length = (int)strlen(hostname->h_name);
 
-    struct client *new_node = (struct client *)malloc(sizeof(client));
-    // new_node->port_no = client_port;
-    new_node->ip = (char *)malloc(sizeof(MESSAGE_SIZE));
-    // printf("%s", str);
-    strcpy(new_node->ip, str);
-    // printf("%s", new_node->ip);
-    strcpy(client_ip[c], str);
-    // printf("\n %s", client_ip[c]);
-    new_node->list_id = c;
-    c++;
-    new_node->client_fd = fdaccept;
-    new_node->hostname = (char *)malloc(sizeof(hlen));
-    strcpy(new_node->hostname, hostname->h_name);
-    new_node->client_status = 1;
-    // new_node->next = NULL;
+    struct client *new_client = (struct client *)malloc(sizeof(client));
+    new_client->ip_addr = (char *)malloc(sizeof(MESSAGE_SIZE));
+    strcpy(new_client->ip_addr, client_address);
+    strcpy(client_ip[client_id], client_address);
+    new_client->list_id = client_id++;
+    new_client->client_file_descriptor = file_descriptor_server_client_socket;
+    new_client->hostname = (char *)malloc(sizeof(host_length));
+    strcpy(new_client->hostname, hostname->h_name);
+    new_client->logged_in = 1;
 
-    if (*first_server_reference == NULL)
+    if (*first_server_reference != NULL)
     {
-
-        *first_server_reference = new_node;
-        new_node->next = NULL;
+        new_client->next = *first_server_reference;
+        *first_server_reference = new_client;
     }
     else
     {
-        // printf("oye here!")
-        new_node->next = *first_server_reference;
-        *first_server_reference = new_node;
+        *first_server_reference = new_client;
+        new_client->next = NULL;
     }
 }
 
 /* function to swap data of two nodes a and b*/
-void swap(struct client *a, struct client *b)
+void swap(struct client *inta, struct client *intb)
 {
-    int temp = a->port_no;
-    a->port_no = b->port_no;
-    b->port_no = temp;
+    int temp = inta->port_num;
+    inta->port_num = intb->port_num;
+    intb->port_num = temp;
 }
 /* Bubble sort the given linked lsit */
-void bubbleSort(struct client *start)
+void sort(struct client *start)
 {
-    int swapped;
-    struct client *ptr1 = start;
-    struct client *lptr = NULL;
-
-    /* Checking for empty list */
-    if (ptr1 == NULL)
+    int flag;
+    struct client *pointer1 = start;
+    struct client *pointer2 = NULL;
+    if (pointer1 == NULL)
         return;
-
-    do
+    while (flag)
     {
-        swapped = 0;
-        ptr1 = start;
+        flag = 0;
+        pointer1 = start;
 
-        while (ptr1->next != lptr)
+        while (pointer1->next != pointer2)
         {
-            if (ptr1->port_no > ptr1->next->port_no)
+            if (pointer1->port_num > pointer1->next->port_num)
             {
-                swap(ptr1, ptr1->next);
-                swapped = 1;
+                swap(pointer1, pointer1->next);
+                flag = 1;
             }
-            ptr1 = ptr1->next;
+            pointer1 = pointer1->next;
         }
-        lptr = ptr1;
-    } while (swapped);
+        pointer2 = pointer1;
+    }
 }
 
 void swap_int(char *num1, char *num2)
@@ -366,19 +350,19 @@ void swap_int(char *num1, char *num2)
     *num2 = temp;
 }
 
-void print(struct client *headref)
+void getList(struct client *headref)
 {
     cse4589_print_and_log("[%s:SUCCESS]\n", "LIST");
     struct client *temp = headref;
     int list_id = 1;
-    bubbleSort(headref);
+    sort(headref);
     while (temp != NULL)
     {
-        // printf("%d %s %d %d \n", list_id, temp->ip, temp->port_no, temp->client_fd);
-        // printf("%-5d%-35s%-20s%-8d\n", list_id, "xyz", temp->ip, temp->port_no);
-        if (temp->client_status == 1)
+        // printf("%d %s %d %d \n", list_id, temp->ip_addr, temp->port_num, temp->client_file_descriptor);
+        // printf("%-5d%-35s%-20s%-8d\n", list_id, "xyz", temp->ip_addr, temp->port_num);
+        if (temp->logged_in == 1)
         {
-            cse4589_print_and_log("%-5d%-35s%-20s%-8d\n", list_id, temp->hostname, client_ip[temp->list_id], temp->port_no);
+            cse4589_print_and_log("%-5d%-35s%-20s%-8d\n", list_id, temp->hostname, client_ip[temp->list_id], temp->port_num);
         }
         temp = temp->next;
         list_id = list_id + 1;
@@ -389,8 +373,6 @@ void print(struct client *headref)
 void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct client *temp)
 {
     char *str = (char *)malloc(sizeof(MESSAGE_SIZE));
-    char *str1 = (char *)malloc(sizeof(MESSAGE_SIZE));
-    char *str2 = (char *)malloc(sizeof(MESSAGE_SIZE));
     char *from_ip = (char *)malloc(sizeof(MESSAGE_SIZE));
     int j;
     int success = 1;
@@ -405,7 +387,7 @@ void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct clien
     }
     while (temp1 != NULL)
     {
-        if (temp1->client_fd == sock_index)
+        if (temp1->client_file_descriptor == sock_index)
             strcpy(from_ip, client_ip[temp1->list_id]);
         temp1 = temp1->next;
     }
@@ -424,9 +406,9 @@ void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct clien
     // strcat(str, "\0")
     while (temp->list_id != j)
         temp = temp->next;
-    // printf("\n me here %d, %d",j,temp->client_fd);
+    // printf("\n me here %d, %d",j,temp->client_file_descriptor);
 
-    if (send(temp->client_fd, str, strlen(str), 0) == -1)
+    if (send(temp->client_file_descriptor, str, strlen(str), 0) == -1)
         success = 0; // perror("send");
     else
     {
@@ -494,12 +476,12 @@ void assign_port(char *buffer, struct client *temp)
         // printf("\n Could not find receiver!");
         else
         {
-            temp->port_no = atoi(port);
-            // printf("\n IP: %s port: %d", ip_address_client, temp->port_no);
+            temp->port_num = atoi(port);
+            // printf("\n IP: %s port: %d", ip_address_client, temp->port_num);
         }
     }
 }
-void connect_ip_port(char str_cip[INET_ADDRSTRLEN], int client_socket)
+void connectIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket)
 {
     struct sockaddr_in socket_address_struct;
     int len = sizeof(socket_address_struct);
@@ -522,7 +504,7 @@ void connect_ip_port(char str_cip[INET_ADDRSTRLEN], int client_socket)
     inet_ntop(AF_INET, &(socket_address_struct.sin_addr), str_cip, len);
 }
 
-int get_ip_port(char str_cip[INET_ADDRSTRLEN], int client_socket, int res)
+int getIpPort(char str_cip[INET_ADDRSTRLEN], int client_socket, int res)
 {
     struct sockaddr_in socket_address_struct;
     int len = sizeof(socket_address_struct);
@@ -544,23 +526,23 @@ int get_ip_port(char str_cip[INET_ADDRSTRLEN], int client_socket, int res)
     return res;
 }
 
-void send_port(int listening_port, int server_login_socket, int client_socket)
+void transferPorts(int listening_port, int server_login_socket, int client_socket)
 {
-    char send_port[100], ip_string[INET_ADDRSTRLEN],port[INET_ADDRSTRLEN];
-    connect_ip_port(ip_string, client_socket);
-    tostring(port, listening_port);
-    strcat(send_port, "Port");
-    strcat(send_port, " ");
-    strcat(send_port, ip_string);
-    strcat(send_port, " ");
-    strcat(send_port, port);
-    strcat(send_port, "\n");
+    char transferPorts[100], ip_string[INET_ADDRSTRLEN], port[INET_ADDRSTRLEN];
+    connectIpPort(ip_string, client_socket);
+    toString(port, listening_port);
+    strcat(transferPorts, "Port");
+    strcat(transferPorts, " ");
+    strcat(transferPorts, ip_string);
+    strcat(transferPorts, " ");
+    strcat(transferPorts, port);
+    strcat(transferPorts, "\n");
 }
 
-void get_IP_address(char *ip_string, int socket_number)
+void getIpAddress(char *ip_string, int socket_number)
 {
     int res;
-    res = get_ip_port(ip_string, socket_number, res);
+    res = getIpPort(ip_string, socket_number, res);
     if (res != 0)
     {
         cse4589_print_and_log("[%s:SUCCESS]\n", "IP");
@@ -574,7 +556,7 @@ void get_IP_address(char *ip_string, int socket_number)
     }
 }
 
-void tostring(char str[], int num)
+void toString(char str[], int num)
 {
     int i, rem, len = 0, n;
 
@@ -606,13 +588,13 @@ void send_client_list(struct client *headref, char client_list[])
     strcat(buf, "List");
     while (temp != NULL)
     {
-        if (temp->client_status == 1)
+        if (temp->logged_in == 1)
         {
             strcat(buf, " ");
-            tostring(list_id, temp->list_id);
+            toString(list_id, temp->list_id);
             strcat(buf, list_id);
             strcat(buf, " ");
-            tostring(str, temp->port_no);
+            toString(str, temp->port_num);
             strcat(buf, str);
             strcat(buf, " ");
             strcat(buf, temp->hostname);
@@ -628,100 +610,89 @@ void send_client_list(struct client *headref, char client_list[])
 
     // return client_list;
 }
-void create_client_list(struct client **first_client_reference, char *buffer)
+void generateList(struct client **first_client_reference, char *buffer)
 {
 
-    char *string[256];
-    // char delim = "\n";
-    int i = 0;
-    string[i] = strtok(buffer, "\n");
-    while (string[i] != NULL)
+    char *temp[256];
+    int i = 1;
+    temp[i] = strtok(buffer, "\n");
+    while (temp[i] != NULL)
     {
-        // printf("string [%d]=%s\n",i,string[i]);
+        temp[i] = strtok(NULL, "\n");
         i++;
-        string[i] = strtok(NULL, "\n");
     }
 
     for (int j = 0; j < i; j++)
     {
-        // printf("%s \n", string[j]);
-        char *val = strtok(string[j], " ");
-        int counter = 0;
-        struct client *new_node = (struct client *)malloc(sizeof(client));
-        while (val != NULL)
+        char *temp_client = strtok(temp[j], " ");
+        int k = 0;
+        struct client *new_client = (struct client *)malloc(sizeof(client));
+        while (temp_client != NULL)
         {
-
-            // printf("%s\n", val);
             if (j == 0)
             {
-                if (counter == 0)
+                if (k == 0)
                     ;
-                else if (counter == 1)
-                    new_node->list_id = atoi(val);
-                else if (counter == 2)
-                { // printf("\n %s",val);
-                    new_node->port_no = atoi(val);
-                    // printf("\n port no %d	",new_node->port_no);
-                }
-                else if (counter == 3)
+                else if (k == 1)
+                    new_client->list_id = atoi(temp_client);
+                else if (k == 2)
                 {
-                    new_node->hostname = (char *)malloc(sizeof(MESSAGE_SIZE));
-                    strcpy(new_node->hostname, val);
-                    // printf("\nhostname %s", new_node->hostname);
+                    new_client->port_num = atoi(temp_client);
                 }
-                else if (counter == 4)
+                else if (k == 3)
                 {
-                    new_node->ip = (char *)malloc(sizeof(MESSAGE_SIZE));
-                    strcpy(new_node->ip, val);
-                    strcpy(client_ip[new_node->list_id], val);
-                    // printf("%s Client_ip",client_ip[new_node->list_id]);
+                    new_client->hostname = (char *)malloc(sizeof(MESSAGE_SIZE));
+                    strcpy(new_client->hostname, temp_client);
+                }
+                else if (k == 4)
+                {
+                    new_client->ip_addr = (char *)malloc(sizeof(MESSAGE_SIZE));
+                    strcpy(new_client->ip_addr, temp_client);
+                    strcpy(client_ip[new_client->list_id], temp_client);
                 }
             }
             else
             {
 
-                if (counter == 0)
-                    new_node->list_id = atoi(val);
-                else if (counter == 1)
+                if (k == 0)
+                    new_client->list_id = atoi(temp_client);
+                else if (k == 1)
                 {
-                    new_node->port_no = atoi(val);
-                    // printf("\n Port no %d", new_node->port_no);
+                    new_client->port_num = atoi(temp_client);
                 }
 
-                else if (counter == 2)
+                else if (k == 2)
                 {
-                    new_node->hostname = (char *)malloc(sizeof(MESSAGE_SIZE));
-                    strcpy(new_node->hostname, val);
+                    new_client->hostname = (char *)malloc(sizeof(MESSAGE_SIZE));
+                    strcpy(new_client->hostname, temp_client);
                 }
-                else if (counter == 3)
+                else if (k == 3)
                 {
-                    new_node->ip = (char *)malloc(sizeof(MESSAGE_SIZE));
-                    strcpy(new_node->ip, val);
-                    strcpy(client_ip[new_node->list_id], val);
+                    new_client->ip_addr = (char *)malloc(sizeof(MESSAGE_SIZE));
+                    strcpy(new_client->ip_addr, temp_client);
+                    strcpy(client_ip[new_client->list_id], temp_client);
                 }
             }
 
-            val = strtok(NULL, " ");
-            counter += 1;
+            temp_client = strtok(NULL, " ");
+            k += 1;
         }
         if (*first_client_reference == NULL)
         {
-
-            *first_client_reference = new_node;
-            new_node->next = NULL;
+            *first_client_reference = new_client;
+            new_client->next = NULL;
         }
         else
         {
-
-            new_node->next = *first_client_reference;
-            *first_client_reference = new_node;
+            new_client->next = *first_client_reference;
+            *first_client_reference = new_client;
         }
     }
 }
 void broadcast(struct client *first_client_reference, char *message, int server_login_socket)
 {
     char ip_str[INET_ADDRSTRLEN];
-    // strcpy(ip_str,get_IP_address(ip_str));
+    // strcpy(ip_str,getIpAddress(ip_str));
 
     struct sockaddr_in socket_address_struct;
     int temp_udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -783,10 +754,10 @@ void broadcast(struct client *first_client_reference, char *message, int server_
         cse4589_print_and_log("[RELAYED:END]\n");
     }
 }
-int client(struct client **first_client_reference, int port_no, int server_client_socket_number)
+int client(struct client **first_client_reference, int port_num, int server_client_socket_number)
 {
     struct sockaddr_in server_addr;
-    int maximum_server_login_socket_number=0;
+    int maximum_server_login_socket_number = 0;
     fd_set masterlist, watchlist;
     char *cmd = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
     char *buffer_received = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
@@ -806,7 +777,7 @@ int client(struct client **first_client_reference, int port_no, int server_clien
     // maximum_server_login_socket_number = 0;
     int server;
     server = server_client_socket_number;
-    // server = connect_to_host(client_ip, port_no);
+    // server = connect_to_host(client_ip, port_num);
 
     while (1)
     {
@@ -844,16 +815,16 @@ int client(struct client **first_client_reference, int port_no, int server_clien
                         {
                             char ip_address[INET_ADDRSTRLEN];
                             int client_socket_number = socket(AF_INET, SOCK_STREAM, 0);
-                            get_IP_address(ip_address, client_socket_number);
+                            getIpAddress(ip_address, client_socket_number);
                         }
                         else if (strcmp(cmd, "PORT\n") == 0)
                         {
                             cse4589_print_and_log("[%s:SUCCESS]\n", "PORT");
-                            cse4589_print_and_log("PORT:%d\n", port_no);
+                            cse4589_print_and_log("PORT:%d\n", port_num);
                             cse4589_print_and_log("[%s:END]\n", "PORT");
                         }
                         else if (strcmp(cmd, "LIST\n") == 0)
-                            print(*first_client_reference);
+                            getList(*first_client_reference);
 
                         else if (strcmp(argument_command, "LOGIN") == 0)
                         {
@@ -904,7 +875,7 @@ int client(struct client **first_client_reference, int port_no, int server_clien
                                 else
                                 {
                                     int client_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-                                    send_port(port_no, server_login_socket, client_socket);
+                                    transferPorts(port_num, server_login_socket, client_socket);
                                 }
 
                                 cse4589_print_and_log("[%s:SUCCESS]\n", "LOGIN");
@@ -937,7 +908,7 @@ int client(struct client **first_client_reference, int port_no, int server_clien
                             memset(buffer_sent, '\0', MESSAGE_SIZE);
 
                             server_addr.sin_family = AF_INET;
-                            server_addr.sin_port = port_no;
+                            server_addr.sin_port = port_num;
                             inet_pton(AF_INET, ip_address_client, &(server_addr.sin_addr));
 
                             strcat(buffer_sent, ip_address_client);
@@ -994,7 +965,7 @@ int client(struct client **first_client_reference, int port_no, int server_clien
                             {
                                 if (strcmp(argument_command, client_ip[temp->list_id]) == 0)
                                 {
-                                    // printf("\n Client ip %s", client_ip[temp->list_id]);
+                                    // printf("\n Client ip_addr %s", client_ip[temp->list_id]);
                                     temp->block_status = 1;
                                     found += 1;
                                 }
@@ -1076,7 +1047,7 @@ int client(struct client **first_client_reference, int port_no, int server_clien
                             // printf("\n %s identify: ", identify);
                             if (strcmp(identify, "List") == 0)
                             { // printf("\n HI");
-                                create_client_list(first_client_reference, buffer_received);
+                                generateList(first_client_reference, buffer_received);
                             }
                             else
                             {

@@ -107,7 +107,6 @@ int server(struct client **first_server_reference, int port_no, int server_clien
         // printf("\n[PA1-Server@CSE489/589]$ ");
         // fflush(stdout);
 
-        /* select() system call. This will BLOCK */
         selret = select(server_head + 1, &watch_list, NULL, NULL, NULL);
         if (selret < 0)
             perror("select failed.");
@@ -382,6 +381,7 @@ void print(struct client *headref)
     }
     cse4589_print_and_log((char *)"[%s:END]\n", "LIST");
 }
+
 void send_to_client(int sock_index, char *send_to_ip, char *buffer, struct client *temp)
 {
     char *str = (char *)malloc(sizeof(MESSAGE_SIZE));
@@ -496,16 +496,15 @@ void assign_port(char *buffer, struct client *temp)
         }
     }
 }
+
 void send_port(int listening_port, int server_fd)
 {
     char send_port[100];
-    // printf("\n String temp %s", port);
     char str_cip[INET_ADDRSTRLEN];
 
     struct sockaddr_in socket_address_struct;
     int temp_udp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     int len = sizeof(socket_address_struct);
-    // char str[INET_ADDRSTRLEN];
     int result;
 
     if (temp_udp == -1)
@@ -549,6 +548,7 @@ void send_port(int listening_port, int server_fd)
     if (send(server_fd, send_port, strlen(send_port), 0) == -1)
         perror("Send");
 }
+
 char *get_IP_address(char *str, int socket_number)
 {
     struct sockaddr_in socket_address_struct;

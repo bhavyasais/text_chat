@@ -256,12 +256,10 @@ int server(struct client **first_server_reference, int port_num, int server_clie
 
 int client(struct client **first_client_reference, int port_num, int server_client_socket_number)
 {
-    struct sockaddr_in server_addr;
+    struct sockaddr_in server_address;
     int maximum_server_login_socket_number = 0;
-    fd_set masterlist, watchlist;
+    fd_set master_list, watch_list;
     char *cmd = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
-    char *buffer_received = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
-    char *buffer_sent = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
     char *argument_command;
     char *input_port_address = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
     char *message = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
@@ -269,12 +267,10 @@ int client(struct client **first_client_reference, int port_num, int server_clie
     char *ip_address_client;
     int server_login_socket;
 
-    FD_ZERO(&masterlist);
-    FD_ZERO(&watchlist);
-    FD_SET(0, &masterlist);
-    // FD_SET(server_client_socket_number, &masterlist);
-    /// maximum_server_login_socket_number = server_client_socket_number;
-    // maximum_server_login_socket_number = 0;
+    FD_ZERO(&master_list);
+    FD_ZERO(&watch_list);
+    FD_SET(0, &master_list);
+    
     int server;
     server = server_client_socket_number;
     // server = connect_to_host(client_ip, port_num);
@@ -283,8 +279,8 @@ int client(struct client **first_client_reference, int port_num, int server_clie
     {
         // printf("\n[PA1-Client@CSE489/589]$ ");
         // fflush(stdout);
-        watchlist = masterlist;
-        int selret = select(maximum_server_login_socket_number + 1, &watchlist, NULL, NULL, NULL);
+        watch_list = master_list;
+        int selret = select(maximum_server_login_socket_number + 1, &watch_list, NULL, NULL, NULL);
         if (selret == -1)
         {
             perror("select");
@@ -295,8 +291,9 @@ int client(struct client **first_client_reference, int port_num, int server_clie
 
             for (int i = 0; i <= maximum_server_login_socket_number; i++)
             {
-                if (FD_ISSET(i, &watchlist))
+                if (FD_ISSET(i, &watch_list))
                 {
+                    char *buffer_received = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
                     memset(cmd, '\0', MESSAGE_SIZE);
                     memset(buffer_received, '\0', MESSAGE_SIZE);
                     if (i == STDIN)
@@ -336,7 +333,7 @@ int client(struct client **first_client_reference, int port_num, int server_clie
                             }
                             else
                             {
-                                FD_SET(server_login_socket, &masterlist);
+                                FD_SET(server_login_socket, &master_list);
                                 if (server_login_socket > maximum_server_login_socket_number)
                                     maximum_server_login_socket_number = server_login_socket;
                             }
@@ -363,11 +360,11 @@ int client(struct client **first_client_reference, int port_num, int server_clie
                             }
                             else
                             {
-                                server_addr.sin_family = AF_INET;
+                                server_address.sin_family = AF_INET;
                                 unsigned int port_temp = atoi(input_port_address);
-                                server_addr.sin_port = htons(port_temp);
-                                inet_pton(AF_INET, client_server_ip_address, &(server_addr.sin_addr));
-                                if (connect(server_login_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+                                server_address.sin_port = htons(port_temp);
+                                inet_pton(AF_INET, client_server_ip_address, &(server_address.sin_addr));
+                                if (connect(server_login_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
                                 {
                                     cse4589_print_and_log("[%s:ERROR]\n", "LOGIN");
                                     cse4589_print_and_log("[%s:END]\n", "LOGIN");
@@ -384,7 +381,7 @@ int client(struct client **first_client_reference, int port_num, int server_clie
                         }
                         else if (strcmp(argument_command, "SEND") == 0)
                         {
-
+                            char *buffer_sent = (char *)malloc(sizeof(char) * MESSAGE_SIZE);
                             ip_address_client = strtok(NULL, " ");
                             for (int count = 0; count < 2; count++)
                             {
@@ -397,9 +394,9 @@ int client(struct client **first_client_reference, int port_num, int server_clie
 
                             memset(buffer_sent, '\0', MESSAGE_SIZE);
 
-                            server_addr.sin_family = AF_INET;
-                            server_addr.sin_port = port_num;
-                            inet_pton(AF_INET, ip_address_client, &(server_addr.sin_addr));
+                            server_address.sin_family = AF_INET;
+                            server_address.sin_port = port_num;
+                            inet_pton(AF_INET, ip_address_client, &(server_address.sin_addr));
 
                             strcat(buffer_sent, ip_address_client);
                             strcat(buffer_sent, " ");
@@ -776,15 +773,9 @@ int getIpPort(char temp[INET_ADDRSTRLEN], int client_socket, int res)
 
 void transferPorts(int listening_port, int server_login_socket, int client_socket)
 {
-    char transferPorts[100], ip_string[INET_ADDRSTRLEN], port[INET_ADDRSTRLEN];
+    char ip_string[INET_ADDRSTRLEN], port[INET_ADDRSTRLEN];
     connectIpPort(ip_string, client_socket);
     toString(port, listening_port);
-    strcat(transferPorts, "Port");
-    strcat(transferPorts, " ");
-    strcat(transferPorts, ip_string);
-    strcat(transferPorts, " ");
-    strcat(transferPorts, port);
-    strcat(transferPorts, "\n");
 }
 
 void getIpAddress(char *ip_string, int socket_number)

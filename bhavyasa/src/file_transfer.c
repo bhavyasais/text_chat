@@ -76,7 +76,6 @@ int client2()
     {
         if (send(socket_file_descriptor, data, sizeof(data), 0) == -1)
         {
-            perror("[-] Error in sendung data");
             exit(1);
         }
         bzero(data, SIZE);
